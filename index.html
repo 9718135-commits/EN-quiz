@@ -10,16 +10,17 @@
 body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);font-size:16px}
 header{position:sticky;top:0;background:#2c4a86;color:#fff;z-index:10}
 header .ttl{padding:10px 14px 2px;font-size:15px;font-weight:700}
-nav{display:flex;overflow-x:auto;scrollbar-width:thin}
-nav button{flex:0 0 auto;background:none;border:none;color:#cfe0ff;padding:10px 14px;font-size:14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
-nav button.on{border-bottom-color:#ffd54a;color:#fff;font-weight:700}
+nav{display:grid;grid-template-columns:repeat(5,1fr);}
+nav button{background:none;border:none;color:#cfe0ff;padding:11px 2px;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;text-align:center;}
+nav button.on{border-bottom-color:#ffd54a;color:#fff;font-weight:700;}
+@media (max-width:360px){nav button{font-size:12px;padding:10px 1px;}}
 main{max-width:760px;margin:0 auto;padding:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
 h2{font-size:17px;margin-bottom:10px}
 h3{font-size:15px;margin:14px 0 8px}
 .pos{display:inline-block;background:#eef3fd;color:var(--pri);border-radius:6px;padding:2px 8px;font-size:13px;margin-left:8px;vertical-align:middle}
-.big{font-size:30px;font-weight:700;letter-spacing:.5px}
-.zh{font-size:20px;line-height:1.7}
+.big{font-size:30px;font-weight:700;letter-spacing:.5px;overflow-wrap:anywhere}
+.zh{font-size:20px;line-height:1.7;overflow-wrap:anywhere}
 .hint{color:var(--gray);font-size:14px;margin-top:6px}
 input[type=text]{width:100%;padding:12px;font-size:17px;border:1.5px solid var(--line);border-radius:10px;margin-top:10px}
 input[type=text]:focus{outline:none;border-color:var(--pri)}
@@ -38,10 +39,10 @@ input[type=text]:focus{outline:none;border-color:var(--pri)}
 .fb.bad{display:block;background:#fdecec;border:1px solid #f3c1c1}
 .fb .ans{font-weight:700}
 .small{font-size:13px;color:var(--gray)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(24px,1fr));gap:3px;margin-top:8px}
-.grid i{display:block;height:22px;border-radius:4px;background:#d7dae2;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(26px,1fr));gap:3px;margin-top:8px}
+.grid i{display:block;height:24px;border-radius:4px;background:#d7dae2;cursor:pointer}
 .grid i.g{background:var(--ok)}.grid i.r{background:var(--bad)}
-.legend{display:flex;gap:14px;font-size:13px;color:#555;margin-top:6px}
+.legend{display:flex;gap:14px;font-size:13px;color:#555;margin-top:6px;flex-wrap:wrap}
 .legend em{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 details.map{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
 details.map summary{cursor:pointer;font-size:14px;color:var(--pri);font-weight:600}
@@ -86,7 +87,7 @@ const NAVS = [["web","词网联想"],["e2c","英译中"],["c2e","中译英"],["m
 const LSKEY = "kaogang.vocab.v1";
 
 /* ---------- 状态 ---------- */
-function blank(){return {v:1,q:{e2c:{},c2e:{},m1:{},m2:{},sp:{}},w:{e2c:{},c2e:{},m1:{},m2:{},sp:{}},f:{q:[],c:[]},log:[],bk:[]};}
+function blank(){return {v:1,q:{e2c:{},c2e:{},m1:{},m2:{},sp:{}},w:{e2c:{},c2e:{},m1:{},m2:{},sp:{}},f:{q:[],c:[]},log:[],set:{rand:{}},bk:[]};}
 let S = blank();
 function load(){
   try{const raw = localStorage.getItem(LSKEY); if(raw){const d = JSON.parse(raw);
@@ -175,13 +176,21 @@ function optionsFor(e,mod){
   return sample(pick.slice(0,3),3).map(o=>o.w);
 }
 function trainGo(mod,idx){
-  sess={mod:mod,idx:idx};
+  sess={mod:mod,idx:idx,rand:!!(S.set&&S.set.rand&&S.set.rand[mod])};
+  if(sess.rand)ensureOrder();
   render();
   if(location.hash!=="#"+mod)location.hash=mod;
 }
+function ensureOrder(){
+  if(!sess.order||sess.order.length!==EN.length){
+    sess.order=[];for(let i=0;i<EN.length;i++)sess.order.push(i);
+    for(let i=sess.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=sess.order[i];sess.order[i]=sess.order[j];sess.order[j]=t;}
+  }
+}
 function curEntry(){
   if(sess.redo){const it=sess.redoList[sess.redoPtr];return BY[it.i];}
-  return EN[sess.idx];
+  const idx=(sess.rand&&sess.order)?sess.order[sess.idx]:sess.idx;
+  return EN[idx];
 }
 function renderTrain(){
   const mod=sess.mod,e=curEntry();
@@ -198,10 +207,12 @@ function renderTrain(){
     h+='<div class="opts" id="opts">'+opts.map((o,k)=>'<button data-k="'+k+'" data-v="'+esc(o)+'">'+esc(o)+'</button>').join("")+'</div>';
     h+='<input type="hidden" id="correct" value="'+esc(correct)+'">';
     h+='<div><button class="btn" id="submit" disabled>提交</button><button class="btn sec" id="favb">'+(inFav?"★ 已收藏":"☆ 收藏本题")+'</button>';
+    h+='<button class="btn gray" id="randb">'+(sess.rand?"🔀 随机中":"🔀 随机做题")+'</button>';
     h+='<button class="btn gray" id="prevb">上一题</button><button class="btn gray" id="nextb">下一题</button></div>';
   }else{
     h+='<input type="text" id="ans" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="'+(mod==="e2c"?"输入中文释义":"输入英文")+'">';
     h+='<div><button class="btn" id="submit">提交</button><button class="btn sec" id="favb">'+(inFav?"★ 已收藏":"☆ 收藏本题")+'</button>';
+    h+='<button class="btn gray" id="randb">'+(sess.rand?"🔀 随机中":"🔀 随机做题")+'</button>';
     h+='<button class="btn gray" id="prevb">上一题</button><button class="btn gray" id="nextb">下一题</button></div>';
   }
   h+='<div class="fb" id="fb"></div>';
@@ -218,6 +229,18 @@ function renderTrain(){
   });}
   $("#submit").onclick=doSubmit;
   $("#favb").onclick=()=>{toggleFavQ(mod,e.i);renderTrain();};
+  $("#randb").onclick=()=>{
+    if(sess.redo){toast("错题重练按错题列表顺序进行");return;}
+    const curIdx=(sess.rand&&sess.order)?sess.order[sess.idx]:sess.idx;
+    sess.rand=!sess.rand;
+    if(sess.rand){ensureOrder();sess.idx=sess.order.indexOf(curIdx);}
+    else{sess.idx=curIdx;delete sess.order;}
+    if(!S.set)S.set={rand:{}};
+    if(!S.set.rand)S.set.rand={};
+    S.set.rand[sess.mod]=sess.rand;
+    save();renderTrain();
+    toast(sess.rand?"已切换为随机做题（不重复覆盖全部题）":"已切换为顺序做题");
+  };
   $("#prevb").onclick=()=>nav(-1);
   $("#nextb").onclick=()=>nav(1);
   bindMap();
@@ -294,7 +317,9 @@ function bindMap(){
   const g=$("#qgrid");
   if(g)g.onclick=ev=>{
     const t=ev.target.closest("i");if(!t||!sess||sess.redo)return;
-    sess.idx=parseInt(t.getAttribute("data-i"),10)-1;
+    let idx=parseInt(t.getAttribute("data-i"),10)-1;
+    if(sess.rand&&sess.order)idx=sess.order.indexOf(idx);
+    sess.idx=idx;
     renderTrain();
     $("#mapbox").open=true;
   };
@@ -552,7 +577,7 @@ function go(name){
   else if(name==="fav")renderFav();
   else if(name==="log")renderLog();
   else if(name==="set")renderSet();
-  else{sess={mod:name,idx:0};renderTrain();}
+  else{sess={mod:name,idx:0,rand:!!(S.set&&S.set.rand&&S.set.rand[name])};if(sess.rand)ensureOrder();renderTrain();}
   if(location.hash!=="#"+name)location.hash=name;
   window.scrollTo(0,0);
 }
